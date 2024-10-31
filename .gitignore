@@ -1,5 +1,6 @@
 code/
 data/
+csv/
 
 model.py
 loss.py
