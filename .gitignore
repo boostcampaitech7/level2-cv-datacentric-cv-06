@@ -6,3 +6,6 @@ model.py
 loss.py
 east_dataset.py
 detect.py
+
+*.pth
+*.ckpt
