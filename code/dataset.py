@@ -11,6 +11,8 @@ from torch.utils.data import Dataset
 from shapely.geometry import Polygon
 from numba import njit
 
+from augmentations.shadow_aug import RectangleShadowTransform
+
 @njit
 def cal_distance(x1, y1, x2, y2):
     '''calculate the Euclidean distance'''
@@ -333,66 +335,6 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
     return new_vertices, new_labels
 
-def rectangle_shadow_aug(image, 
-                        opacity_range=(0.5, 0.7),
-                        width_range=(0.25, 0.5),
-                        height_range=(0.25, 0.5),
-                        random_position=True,
-                        p=0.5
-                        ):
-    """
-    이미지에 사각형 모양의 반투명한 그림자를 추가하는 함수
-    
-    Parameters:
-    -----------
-    image : numpy.ndarray
-        입력 이미지 (BGR 또는 RGB 형식)
-    opacity_range : tuple
-        그림자의 투명도 범위 (min, max), 0에 가까울수록 어두움, 1에 가까울수록 밝음
-    width_range : tuple
-        그림자 너비의 범위 (이미지 너비 대비 비율)
-    height_range : tuple
-        그림자 높이의 범위 (이미지 높이 대비 비율)
-    random_position : bool
-        True면 랜덤 위치, False면 중앙에 위치
-    p=0.5 : float
-        적용 확률
-        
-    Returns:
-    --------
-    numpy.ndarray
-        그림자가 추가된 이미지
-    """
-    if np.random.random() > p:
-        return image
-    
-    # 입력 이미지 복사
-    result = image.copy()
-    height, width = image.shape[:2]
-    
-    # 그림자 크기 계산
-    shadow_width = int(width * np.random.uniform(width_range[0], width_range[1]))
-    shadow_height = int(height * np.random.uniform(height_range[0], height_range[1]))
-    
-    # 그림자 위치 계산
-    if random_position:
-        x1 = np.random.randint(0, width - shadow_width)
-        y1 = np.random.randint(0, height - shadow_height)
-    else:
-        x1 = (width - shadow_width) // 2
-        y1 = (height - shadow_height) // 2
-    
-    x2 = x1 + shadow_width
-    y2 = y1 + shadow_height
-    
-    # 그림자 투명도 설정
-    opacity = np.random.uniform(opacity_range[0], opacity_range[1])
-    
-    # 그림자 적용
-    result[y1:y2, x1:x2] = (result[y1:y2, x1:x2] * opacity).astype(np.uint8)
-    
-    return result
-
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
                  split='train',
@@ -471,12 +413,11 @@ class SceneTextDataset(Dataset):
         
         # Custom Aug
         funcs.append(
-            A.Lambda(
-                image=lambda x, **kwargs: rectangle_shadow_aug(
-                    x, 
-                    opacity_range=(0.7, 0.9),
-                    p=0.7
-                )
+            RectangleShadowTransform(
+                opacity_range=(0.7, 0.9),
+                width_range=(0.25, 0.5),
+                height_range=(0.25, 0.5),
+                p=0.7
             )
         )
         
