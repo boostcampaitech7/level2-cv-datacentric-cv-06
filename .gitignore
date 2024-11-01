@@ -9,3 +9,4 @@ detect.py
 
 *.pth
 *.ckpt
+*.csv
