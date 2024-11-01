@@ -12,3 +12,4 @@ detect.py
 *.pth
 *.ckpt
 *.csv
+*pyc
