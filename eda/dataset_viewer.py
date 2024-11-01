@@ -39,15 +39,25 @@ def read_prediction_csv(csv_path):
         st.error(f"Error reading prediction file: {str(e)}")
         return None
 
+def get_dataset_name(path):
+    path = Path(path)
+    if 'filtered' in str(path):
+        return f"{path.parent.parent.parent.name} (Filtered)"
+    return path.parent.parent.name
 
 def get_image_paths(base_path, json_paths, data_type):
     image_paths = {}
     for json_path in json_paths:
-        # img/train 또는 img/test 경로 설정
-        img_dir = str(Path(json_path).parent.parent / 'img' / data_type.lower())
-        json_data = read_json(json_path)
+        # filtered 데이터의 경우 경로 조정
+        json_path = Path(json_path)
+        if 'filtered' in str(json_path):
+            img_dir = json_path.parent.parent.parent / 'img' / data_type.lower()
+        else:
+            img_dir = json_path.parent.parent / 'img' / data_type.lower()
+        
+        json_data = read_json(str(json_path))
         for img_id in json_data['images'].keys():
-            img_path = str(Path(img_dir) / img_id)
+            img_path = str(img_dir / img_id)
             if Path(img_path).exists():
                 image_paths[img_id] = img_path
             else:
@@ -127,6 +137,11 @@ def main():
     # Train/Test 선택
     data_type = st.radio("Select Data Type:", ["Train", "Test"])
     
+    # Filtered/Original 선택 (Train인 경우만 표시)
+    use_filtered = False
+    if data_type == "Train":
+        use_filtered = st.checkbox("Use Filtered Data")
+
     # Test 선택 시 CSV 파일 선택 옵션 추가
     pred_df = None
     if data_type == "Test":
@@ -144,12 +159,16 @@ def main():
         st.session_state.current_idx = 0
         st.session_state.prev_data_type = data_type
     
-    # JSON 파일 목록 가져오기
-    json_pattern = f"*_receipt/ufo/*{data_type.lower()}.json"
+    # JSON 파일 패턴 설정
+    if use_filtered:
+        json_pattern = f"*_receipt/ufo/filtered/train_filtered.json"
+    else:
+        json_pattern = f"*_receipt/ufo/*{data_type.lower()}.json"
+    
     json_paths = glob.glob(str(Path(base_path) / json_pattern))
     
     if not json_paths:
-        st.error(f"No {data_type} JSON files found!")
+        st.error(f"No {'filtered ' if use_filtered else ''}{data_type} JSON files found!")
         return
     
     # 데이터셋 선택 (session state로 관리)
@@ -159,7 +178,7 @@ def main():
     selected_json = st.selectbox(
         "Select Dataset:",
         json_paths,
-        format_func=lambda x: Path(x).parent.parent.name
+        format_func=get_dataset_name
     )
     
     # 데이터셋이 변경되면 인덱스 초기화
