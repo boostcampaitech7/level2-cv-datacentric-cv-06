@@ -1,2 +1,11 @@
-code/
 data/
+csv/
+
+code/pths/
+code/model.py
+code/loss.py
+code/east_dataset.py
+code/detect.py
+
+*.pth
+*.ckpt
