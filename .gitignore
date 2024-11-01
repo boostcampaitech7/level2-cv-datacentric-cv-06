@@ -1,6 +1,8 @@
 code/
 data/
 csv/
+wandb/
+SROIE2019/
 
 model.py
 loss.py
