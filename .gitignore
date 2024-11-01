@@ -1,6 +1,8 @@
+__pycache__/
 code/
 data/
 csv/
+wandb/
 
 model.py
 loss.py
