@@ -181,16 +181,26 @@ def main():
     json_paths = glob.glob(str(Path(base_path) / json_pattern))
     
     # Test 선택 시 CSV 파일 선택 옵션 추가
-    pred_df = None
+    pred_df1 = None
+    pred_df2 = None
     if data_type == "Test":
         csv_files = glob.glob("./csv/*.csv")
         if csv_files:
-            selected_csv = st.selectbox(
-                "Select Prediction CSV:",
+            selected_csv1 = st.selectbox(
+                "Select First Prediction CSV:",
                 csv_files,
                 format_func=lambda x: Path(x).name
             )
-            pred_df = read_prediction_csv(selected_csv)
+            pred_df1 = read_prediction_csv(selected_csv1)
+            
+            # 두 번째 CSV 파일 선택
+            selected_csv2 = st.selectbox(
+                "Select Second Prediction CSV (Optional):",
+                ["None"] + csv_files,
+                format_func=lambda x: Path(x).name if x != "None" else "None"
+            )
+            if selected_csv2 != "None":
+                pred_df2 = read_prediction_csv(selected_csv2)
     
     # 데이터 타입이 변경되면 인덱스 초기화
     if st.session_state.prev_data_type != data_type:
@@ -281,18 +291,28 @@ def main():
         
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         
-        if data_type == "Test" and pred_df is not None:
-            # Test 이미지일 경우 원본과 예측 결과를 나란히 표시
-            col1, col2 = st.columns(2)
+        if data_type == "Test" and pred_df1 is not None:
+            # Test 이미지일 경우 원본과 예측 결과들을 표시
+            if pred_df2 is not None:
+                col1, col2, col3 = st.columns(3)
+            else:
+                col1, col2 = st.columns(2)
             
             with col1:
                 st.write("Original Test Image")
                 st.image(img, use_column_width=True)
                 
             with col2:
-                st.write("Prediction Result")
-                img_pred = visualize_prediction(img, current_img_id, pred_df)
-                st.image(img_pred, use_column_width=True)
+                st.write(f"Prediction Result 1 ({Path(selected_csv1).name})")
+                img_pred1 = visualize_prediction(img, current_img_id, pred_df1)
+                st.image(img_pred1, use_column_width=True)
+            
+            if pred_df2 is not None:
+                with col3:
+                    st.write(f"Prediction Result 2 ({Path(selected_csv2).name})")
+                    img_pred2 = visualize_prediction(img, current_img_id, pred_df2)
+                    st.image(img_pred2, use_column_width=True)
+                    
         elif data_type == "Train" and use_filtered:
             # 원본 train.json 파일 경로
             original_json_path = str(Path(selected_json).parent.parent / f"{data_type.lower()}.json")
