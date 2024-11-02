@@ -1,6 +1,9 @@
+__pycache__/
 code/
 data/
 csv/
+wandb/
+predictions/
 
 model.py
 loss.py
@@ -9,3 +12,4 @@ detect.py
 
 *.pth
 *.ckpt
+*.out
