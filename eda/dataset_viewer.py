@@ -42,8 +42,8 @@ def read_prediction_csv(csv_path):
 def get_dataset_name(path):
     path = Path(path)
     if 'filtered' in str(path):
-        return f"{path.parent.parent.parent.name} (Filtered)"
-    return path.parent.parent.name
+        return f"{path.parent.parent.parent.name} - {path.name}"
+    return f"{path.parent.parent.name} - {path.name}"
 
 def get_image_paths(base_path, json_paths, data_type):
     image_paths = {}
@@ -89,6 +89,38 @@ def visualize_image(img_id, img_info, img_path, is_train=True):
     
     return img
 
+def visualize_comparison(img_id, original_info, filtered_info, img_path):
+    """원본과 필터링된 이미지를 나란히 비교하는 함수"""
+    img = cv2.imread(img_path)
+    if img is None:
+        st.error(f"Cannot load image: {img_path}")
+        return
+    
+    img_original = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2RGB)
+    img_filtered = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2RGB)
+    
+    # 원본 이미지에 박스 그리기 (수정된 부분)
+    for word_id, word in original_info['words'].items():
+        if not word.get('illegibility', False):
+            transcription = word.get('transcription')
+            points = np.array(word.get('points', []))
+            if len(points) > 0:
+                # 빈 텍스트인 경우 빨간색, 아닌 경우 파란색으로 표시
+                is_empty = transcription is not None and transcription.strip() == ''
+                color = (255, 0, 0) if is_empty else (0, 0, 255)
+                cv2.polylines(img_original, [points.astype(np.int32)], True, color, 2)
+    
+    # 필터링된 이미지에 박스 그리기
+    for word_id, word in filtered_info['words'].items():
+        if not word.get('illegibility', False):
+            transcription = word.get('transcription')
+            points = np.array(word.get('points', []))
+            if len(points) > 0:
+                is_empty = transcription is not None and transcription.strip() == ''
+                color = (255, 0, 0) if is_empty else (0, 0, 255)
+                cv2.polylines(img_filtered, [points.astype(np.int32)], True, color, 2)
+    
+    return img_original, img_filtered
 def visualize_prediction(img, img_id, pred_df):
     """예측 결과로 박스를 그리는 함수"""
     img_pred = img.copy()
@@ -123,10 +155,8 @@ def visualize_prediction(img, img_id, pred_df):
 def main():
     st.title("Receipt Image Visualization")
     
-    # 데이터 경로 설정
     base_path = "../data"
     
-    # session state 초기화
     if 'current_idx' not in st.session_state:
         st.session_state.current_idx = 0
     if 'prev_data_type' not in st.session_state:
@@ -134,18 +164,26 @@ def main():
     if 'prev_dataset' not in st.session_state:
         st.session_state.prev_dataset = None
     
-    # Train/Test 선택
     data_type = st.radio("Select Data Type:", ["Train", "Test"])
     
-    # Filtered/Original 선택 (Train인 경우만 표시)
+    # 수정된 부분: Filtered 데이터 선택 로직
     use_filtered = False
     if data_type == "Train":
         use_filtered = st.checkbox("Use Filtered Data")
 
+    # JSON 파일 패턴 설정
+    if use_filtered:
+        # filtered 폴더 내의 모든 JSON 파일을 찾음
+        json_pattern = f"*_receipt/ufo/filtered/*.json"
+    else:
+        json_pattern = f"*_receipt/ufo/*{data_type.lower()}.json"
+    
+    json_paths = glob.glob(str(Path(base_path) / json_pattern))
+    
     # Test 선택 시 CSV 파일 선택 옵션 추가
     pred_df = None
     if data_type == "Test":
-        csv_files = glob.glob("./csv/*.csv")  # CSV 파일 경로 패턴
+        csv_files = glob.glob("./csv/*.csv")
         if csv_files:
             selected_csv = st.selectbox(
                 "Select Prediction CSV:",
@@ -159,9 +197,10 @@ def main():
         st.session_state.current_idx = 0
         st.session_state.prev_data_type = data_type
     
-    # JSON 파일 패턴 설정
+    # JSON 파일 패턴 설정 (중복 제거)
     if use_filtered:
-        json_pattern = f"*_receipt/ufo/filtered/train_filtered.json"
+        # filtered 폴더 내의 모든 JSON 파일을 찾음
+        json_pattern = f"*_receipt/ufo/filtered/*.json"
     else:
         json_pattern = f"*_receipt/ufo/*{data_type.lower()}.json"
     
@@ -254,6 +293,27 @@ def main():
                 st.write("Prediction Result")
                 img_pred = visualize_prediction(img, current_img_id, pred_df)
                 st.image(img_pred, use_column_width=True)
+        elif data_type == "Train" and use_filtered:
+            # 원본 train.json 파일 경로
+            original_json_path = str(Path(selected_json).parent.parent / f"{data_type.lower()}.json")
+            original_data = read_json(original_json_path)
+            
+            # 이미지 표시
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write("Original Train Image")
+                img_original, img_filtered = visualize_comparison(
+                    current_img_id,
+                    original_data['images'][current_img_id],
+                    data['images'][current_img_id],
+                    img_path
+                )
+                st.image(img_original, use_column_width=True)
+                
+            with col2:
+                st.write("Filtered Train Image")
+                st.image(img_filtered, use_column_width=True)
         else:
             # Train 이미지는 박스 표시와 함께 표시
             img_with_boxes = visualize_image(current_img_id, img_info, img_path, 
