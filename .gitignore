@@ -1,5 +1,9 @@
+__pycache__/
+code/
 data/
 csv/
+wandb/
+predictions/
 
 code/model.py
 code/loss.py
@@ -14,3 +18,4 @@ code/trained_models/
 *.ckpt
 *.out
 **/__pycache__/
+*.out
