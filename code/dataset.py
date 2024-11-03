@@ -412,14 +412,14 @@ class SceneTextDataset(Dataset):
         funcs = []
         
         # Custom Aug
-        funcs.append(
-            RectangleShadowTransform(
-                opacity_range=(0.7, 0.9),
-                width_range=(0.25, 0.5),
-                height_range=(0.25, 0.5),
-                p=0.7
-            )
-        )
+        # funcs.append(
+        #     RectangleShadowTransform(
+        #         opacity_range=(0.7, 0.9),
+        #         width_range=(0.25, 0.5),
+        #         height_range=(0.25, 0.5),
+        #         p=0.7
+        #     )
+        # )
         
         if self.color_jitter:
             funcs.append(A.ColorJitter())
