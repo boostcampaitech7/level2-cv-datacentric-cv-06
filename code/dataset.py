@@ -335,6 +335,12 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
     return new_vertices, new_labels
 
+# vertices 좌표 클리핑 함수
+def clip_vertices(vertices, image_width, image_height):
+    vertices[:, 0] = np.clip(vertices[:, 0], 0, image_width - 1)
+    vertices[:, 1] = np.clip(vertices[:, 1], 0, image_height - 1)
+    return vertices
+
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
                  split='train',
@@ -405,6 +411,9 @@ class SceneTextDataset(Dataset):
         image, vertices = rotate_img(image, vertices)
         image, vertices = crop_img(image, vertices, labels, self.crop_size)
 
+        # albumentation의 keypoint 기능을 사용하기 위해 format을 변환
+        vertices = clip_vertices(vertices.reshape(-1, 2), image.width, image.height)
+
         if image.mode != 'RGB':
             image = image.convert('RGB')
         image = np.array(image)
@@ -415,8 +424,6 @@ class SceneTextDataset(Dataset):
             funcs.append(A.ColorJitter())
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
-        transform = A.Compose(funcs)
-
         # Custom Aug
         # funcs.append(
         #     RectangleShadowTransform(
@@ -426,8 +433,14 @@ class SceneTextDataset(Dataset):
         #         p=0.7
         #     )
         # )
+        
+        transform = A.Compose(
+            funcs,
+            keypoint_params=A.KeypointParams(format='xy')  # keypoint_params를 Compose에 추가
+        )
 
-        image = transform(image=image)['image']
+        augmented = transform(image=image, keypoints=vertices)
+        image, vertices = augmented['image'], np.array(augmented['keypoints']).reshape(-1, 8)
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
 
