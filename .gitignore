@@ -1,15 +1,20 @@
 __pycache__/
-code/
 data/
 csv/
 wandb/
 predictions/
 
-model.py
-loss.py
-east_dataset.py
-detect.py
+code/model.py
+code/loss.py
+code/east_dataset.py
+code/detect.py
+code/pths/
+code/predictions/
+code/wandb/
+code/trained_models/
 
 *.pth
 *.ckpt
+*.out
+**/__pycache__/
 *.out
