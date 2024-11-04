@@ -477,6 +477,7 @@ class SceneTextDataset(Dataset):
         #         p=0.7
         #     )
         # )
+        funcs.append(A.MotionBlur(blur_limit=21, p=1))
         
         transform = A.Compose(
             funcs,
