@@ -114,7 +114,7 @@ def main():
     st.title("Receipt Image Visualization")
     
     # 데이터 경로 설정
-    base_path = "../data"
+    base_path = "../code/data"
     
     # session state 초기화
     if 'current_idx' not in st.session_state:
