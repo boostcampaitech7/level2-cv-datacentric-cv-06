@@ -76,7 +76,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
     dataset = SceneTextDataset(
         data_dir,
-        split='filtered/train_filtered',
+        split='filtered/train_filtered_both',
         image_size=image_size,
         crop_size=input_size,
     )
