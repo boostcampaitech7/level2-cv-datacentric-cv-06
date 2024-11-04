@@ -3,8 +3,8 @@ import os
 import numpy as np
 from shapely.geometry import Polygon
 
-def is_valid_box(points, image_width, image_height, min_area=100, min_side_length=5, 
-                aspect_ratio_range=(0.02, 15), boundary_threshold=0):
+def is_valid_box(points, image_width, image_height, min_area=10, min_side_length=1, 
+                aspect_ratio_range=(0.001, 100), boundary_threshold=0, max_angle_diff=30):
     """박스의 유효성을 검사하는 함수"""
     try:
         poly = Polygon(points)
@@ -19,27 +19,57 @@ def is_valid_box(points, image_width, image_height, min_area=100, min_side_lengt
                 y < -boundary_threshold or y > image_height + boundary_threshold):
                 return False
         
-        # 3. 변의 길이 검사
-        for i in range(4):
-            x1, y1 = points[i]
-            x2, y2 = points[(i + 1) % 4]
-            side_length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-            if side_length < min_side_length:
-                return False
+        # # 3. 변의 길이 검사
+        # for i in range(4):
+        #     x1, y1 = points[i]
+        #     x2, y2 = points[(i + 1) % 4]
+        #     side_length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        #     if side_length < min_side_length:
+        #         return False
         
-        # 4. 종횡비 검사
-        bounds = poly.bounds
-        width = bounds[2] - bounds[0]
-        height = bounds[3] - bounds[1]
-        if height == 0:
-            return False
-        aspect_ratio = width / height
-        if aspect_ratio < aspect_ratio_range[0] or aspect_ratio > aspect_ratio_range[1]:
-            return False
+        # # 4. 종횡비 검사
+        # bounds = poly.bounds
+        # width = bounds[2] - bounds[0]
+        # height = bounds[3] - bounds[1]
+        # if height == 0:
+        #     return False
+        # aspect_ratio = width / height
+        # if aspect_ratio < aspect_ratio_range[0] or aspect_ratio > aspect_ratio_range[1]:
+        #     return False
         
         # 5. 볼록성 검사
         if not poly.is_valid or not poly.is_simple:
             return False
+        
+        # 6. 사각형 정규성 검사 (각도 검사)
+        angles = []
+        for i in range(4):
+            p1 = points[i]
+            p2 = points[(i + 1) % 4]
+            p3 = points[(i + 2) % 4]
+            
+            # 두 벡터
+            v1 = np.array([p2[0] - p1[0], p2[1] - p1[1]])
+            v2 = np.array([p3[0] - p2[0], p3[1] - p2[1]])
+            
+            # 벡터의 크기
+            norm1 = np.linalg.norm(v1)
+            norm2 = np.linalg.norm(v2)
+            
+            if norm1 == 0 or norm2 == 0:
+                return False
+                
+            # 내적을 이용한 각도 계산
+            cos_angle = np.dot(v1, v2) / (norm1 * norm2)
+            # 수치 오차 보정
+            cos_angle = min(1, max(-1, cos_angle))
+            angle = np.degrees(np.arccos(cos_angle))
+            angles.append(angle)
+        
+        # 직각에서 벗어난 정도 체크
+        for angle in angles:
+            if abs(angle - 90) > max_angle_diff:
+                return False
         
         return True
     except Exception:
