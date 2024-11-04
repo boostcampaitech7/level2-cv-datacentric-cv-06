@@ -6,6 +6,10 @@ code/model.py
 code/loss.py
 code/east_dataset.py
 code/detect.py
+code/wandb/
+code/predictions/
 
 *.pth
 *.ckpt
+*.out
+*/__pycache__/

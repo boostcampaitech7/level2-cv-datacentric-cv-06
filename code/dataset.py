@@ -411,21 +411,21 @@ class SceneTextDataset(Dataset):
 
         funcs = []
         
-        # Custom Aug
-        funcs.append(
-            RectangleShadowTransform(
-                opacity_range=(0.7, 0.9),
-                width_range=(0.25, 0.5),
-                height_range=(0.25, 0.5),
-                p=0.7
-            )
-        )
-        
         if self.color_jitter:
             funcs.append(A.ColorJitter())
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
         transform = A.Compose(funcs)
+
+        # Custom Aug
+        # funcs.append(
+        #     RectangleShadowTransform(
+        #         opacity_range=(0.7, 0.9),
+        #         width_range=(0.25, 0.5),
+        #         height_range=(0.25, 0.5),
+        #         p=0.7
+        #     )
+        # )
 
         image = transform(image=image)['image']
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
