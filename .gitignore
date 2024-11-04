@@ -13,3 +13,4 @@ detect.py
 *.ckpt
 *.csv
 *pyc
+*.out
