@@ -49,6 +49,7 @@ def parse_args():
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--max_epoch', type=int, default=150)
     parser.add_argument('--save_interval', type=int, default=5)
+    parser.add_argument('--max_norm', type=float, default=5.0)
     
     args = parser.parse_args()
 
@@ -58,7 +59,7 @@ def parse_args():
     return args
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval):
+                learning_rate, max_epoch, save_interval, max_norm):
     
     # Initialize wandb
     wandb.init(
@@ -105,6 +106,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
                 optimizer.step()
 
                 loss_val = loss.item()
