@@ -2,6 +2,7 @@ import os
 import os.path as osp
 import time
 import math
+import numpy as np
 from datetime import timedelta
 from argparse import ArgumentParser
 
@@ -161,6 +162,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     wandb.finish()
 
 def main(args):
+    set_seed(42)
     do_training(**args.__dict__)
 
 if __name__ == '__main__':

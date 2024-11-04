@@ -341,6 +341,49 @@ def clip_vertices(vertices, image_width, image_height):
     vertices[:, 1] = np.clip(vertices[:, 1], 0, image_height - 1)
     return vertices
 
+@njit
+def bbox_transform(bbox, M):
+    v = np.array(bbox).reshape(-1, 2).T
+    v = np.vstack([v, np.ones((1, 4))])
+    
+    v = M @ v # Perpective Transform
+    v = v[:2, :] / v[2, :] # 마지막 행의 값으로 나눠 정규화
+    out = v.T.flatten().tolist()
+    return out
+
+def perspective_augmentaiton(image, vertices, pad=0, color=None):
+    if color is None:
+        color = [255, 255, 255]
+    width, height = np.array(image.size)
+    magnitude_lb = 0
+    magnitude_ub = 200
+    src = np.array([[0, 0], [width, 0], [width, height], [0, height]], np.float32)
+    perturb = np.random.uniform(magnitude_lb, magnitude_ub, (4, 2)) * np.array(
+        [[1, 1], [-1, 1], [-1, -1], [1, -1]]
+    )
+    perturb = perturb.astype(np.float32)
+    dst = src + perturb
+
+    # obtain the transform matrix
+    M = cv2.getPerspectiveTransform(src, dst) # 원본 좌표 src를 dst처럼 왜곡한 좌표로 만들기 위한 원근 변환 행렬 추출
+
+    # transform the image
+    out = cv2.warpPerspective(
+        np.array(image),
+        M,
+        image.size,
+        flags=cv2.INTER_LINEAR,
+        borderValue=color,
+    )
+    out = Image.fromarray(out)
+    image = out
+
+    # transform the bounding boxes
+    for i, bbox in enumerate(vertices):
+        vertices[i] = bbox_transform(bbox, M) # 실제 bbox에 원근 변환 행렬을 적용해 이미지의 변화에 따라가도록해주기
+
+    return image, vertices
+
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
                  split='train',
@@ -408,6 +451,7 @@ class SceneTextDataset(Dataset):
         image = Image.open(image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
+        # image, vertices = perspective_augmentaiton(image, vertices) # Perspective Transform
         image, vertices = rotate_img(image, vertices)
         image, vertices = crop_img(image, vertices, labels, self.crop_size)
 
