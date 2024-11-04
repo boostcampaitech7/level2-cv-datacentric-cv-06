@@ -15,7 +15,7 @@ import wandb
 import random
 
 from east_dataset import EASTDataset
-from dataset import SceneTextDataset
+from dataset_filtered import SceneTextDataset
 from model import EAST
 
 def set_seed(seed=42):
@@ -76,7 +76,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
     dataset = SceneTextDataset(
         data_dir,
-        split='train',
+        split='filtered/train_filtered_both',
         image_size=image_size,
         crop_size=input_size,
     )
