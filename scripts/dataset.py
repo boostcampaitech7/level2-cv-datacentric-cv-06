@@ -348,7 +348,7 @@ class SceneTextDataset(Dataset):
         self.split = split
         total_anno = dict(images=dict())
         for nation in self._lang_list:
-            with open(osp.join(root_dir, '{}_receipt/ufo/filtered/{}_filtered_empty.json'.format(nation, split)), 'r', encoding='utf-8') as f:
+            with open(osp.join(root_dir, '{}_receipt/ufo/filtered/{}_filtered_both.json'.format(nation, split)), 'r', encoding='utf-8') as f:
                 anno = json.load(f)
             for im in anno['images']:
                 total_anno['images'][im] = anno['images'][im]
@@ -415,7 +415,6 @@ class SceneTextDataset(Dataset):
         funcs = []
         if self.color_jitter:
             funcs.append(A.ColorJitter())
-            funcs.append(A.ElasticTransform(alpha = 1000, sigma = 50, p =0.5))
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
         transform = A.Compose(funcs)

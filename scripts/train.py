@@ -49,6 +49,7 @@ def parse_args():
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--max_epoch', type=int, default=150)
     parser.add_argument('--save_interval', type=int, default=5)
+    parser.add_argument('--wandb_name', type=str, default="")
     
     args = parser.parse_args()
 
@@ -58,7 +59,7 @@ def parse_args():
     return args
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval):
+                learning_rate, max_epoch, save_interval, wandb_name):
     
     # Initialize wandb
     wandb.init(
@@ -73,6 +74,10 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             "input_size": input_size,
         }
     )
+
+    if wandb_name != "":
+        wandb.run.name=wandb_name
+        wandb.run.save()
 
     dataset = SceneTextDataset(
         data_dir,
@@ -93,7 +98,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model = EAST()
 
     #Load PreTrained Model 
-    checkpoint = torch.load(osp.join(model_dir,"Textgen_to_sroie,cord_epoch_30.pth"))
+    checkpoint = torch.load(osp.join(model_dir,"Textgen_to_opendata_epoch_30.pth"))
     model.load_state_dict(checkpoint)
 
     model.to(device)
