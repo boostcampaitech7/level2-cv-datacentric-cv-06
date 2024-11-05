@@ -155,6 +155,7 @@ def visualize_prediction(img, img_id, pred_df):
 def main():
     st.title("Receipt Image Visualization")
     
+    # 데이터 경로 설정
     base_path = "../data"
     
     if 'current_idx' not in st.session_state:

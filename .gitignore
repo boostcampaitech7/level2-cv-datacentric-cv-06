@@ -3,6 +3,7 @@ code/
 data/
 csv/
 wandb/
+SROIE2019/
 predictions/
 
 model.py
@@ -12,4 +13,8 @@ detect.py
 
 *.pth
 *.ckpt
+*.csv
+*pyc
 *.out
+*.jpg
+*.json
