@@ -2,6 +2,7 @@ import os
 import os.path as osp
 import time
 import math
+import numpy as np
 from datetime import timedelta
 from argparse import ArgumentParser
 
@@ -14,8 +15,21 @@ import wandb
 import random
 
 from east_dataset import EASTDataset
-from dataset import SceneTextDataset
+from dataset_filtered import SceneTextDataset
 from model import EAST
+
+def set_seed(seed=42):
+    """Sets the seed of the entire notebook so results are the same every time we run.
+    This is for REPRODUCIBILITY."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    # When running on the CuDNN backend, two further options must be set
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # Set a fixed value for the hash seed
+    os.environ['PYTHONHASHSEED'] = str(seed)
 
 def parse_args():
     parser = ArgumentParser()
@@ -62,7 +76,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
     dataset = SceneTextDataset(
         data_dir,
-        split='train',
+        split='filtered/train_filtered_both',
         image_size=image_size,
         crop_size=input_size,
     )
@@ -79,9 +93,9 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model = EAST()
 
     #Load PreTrained Model 
-    checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
-    model.load_state_dict(checkpoint)
-
+    # checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
+    # model.load_state_dict(checkpoint)
+    
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
@@ -149,6 +163,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     wandb.finish()
 
 def main(args):
+    set_seed(42)
     do_training(**args.__dict__)
 
 if __name__ == '__main__':
