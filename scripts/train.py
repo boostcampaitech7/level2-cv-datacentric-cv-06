@@ -49,7 +49,11 @@ def parse_args():
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--max_epoch', type=int, default=150)
     parser.add_argument('--save_interval', type=int, default=5)
-    
+    parser.add_argument('--use_gradient_accumulation', action='store_true', 
+                      help='Whether to use gradient accumulation')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=2,
+                      help='Number of gradient accumulation steps')
+
     args = parser.parse_args()
 
     if args.input_size % 32 != 0:
@@ -58,7 +62,7 @@ def parse_args():
     return args
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval):
+                learning_rate, max_epoch, save_interval, use_gradient_accumulation, gradient_accumulation_steps):
     
     # Initialize wandb
     wandb.init(
@@ -86,15 +90,20 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=True,
+        prefetch_factor=2,
     )
+
+    gradient_accumulation_steps = 2
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = EAST()
 
     #Load PreTrained Model 
-    checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
-    model.load_state_dict(checkpoint)
+    # checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
+    # model.load_state_dict(checkpoint)
 
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -103,16 +112,30 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model.train()
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
+        optimizer.zero_grad()
+
         with tqdm(total=num_batches) as pbar:
-            for img, gt_score_map, gt_geo_map, roi_mask in train_loader:
+            for idx, (img, gt_score_map, gt_geo_map, roi_mask) in enumerate(train_loader):
                 pbar.set_description('[Epoch {}]'.format(epoch + 1))
 
                 loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
-                optimizer.zero_grad()
+                
+                if use_gradient_accumulation:
+                    # Normalize loss when using gradient accumulation
+                    loss = loss / gradient_accumulation_steps
+                
                 loss.backward()
-                optimizer.step()
 
+                if not use_gradient_accumulation or \
+                   (idx + 1) % gradient_accumulation_steps == 0 or \
+                   (idx + 1) == num_batches:
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                # Loss 값 기록
                 loss_val = loss.item()
+                if use_gradient_accumulation:
+                    loss_val *= gradient_accumulation_steps
                 epoch_loss += loss_val
 
                 # Log batch metrics to wandb
@@ -126,7 +149,8 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
                 pbar.update(1)
                 val_dict = {
-                    'Cls loss': extra_info['cls_loss'], 'Angle loss': extra_info['angle_loss'],
+                    'Cls loss': extra_info['cls_loss'], 
+                    'Angle loss': extra_info['angle_loss'],
                     'IoU loss': extra_info['iou_loss']
                 }
                 pbar.set_postfix(val_dict)
