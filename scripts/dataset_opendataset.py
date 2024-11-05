@@ -372,10 +372,12 @@ class SceneTextDataset(Dataset):
             lang = 'thai'
         elif lang_indicator == 'vi':
             lang = 'vietnamese'
+        elif lang == "cord": #cord dataset 
+            lang = 'cord'
         elif fname[0] == 'X': # sroie dataset 
             lang = 'sroie'
-        elif fname[0:7] == "receipt": #cord dataset 
-            lang = 'cord'
+        else:
+            raise ValueError
         return osp.join(self.root_dir, f'{lang}_receipt', 'img', self.split)
     
     def __len__(self):
