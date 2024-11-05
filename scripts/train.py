@@ -3,6 +3,8 @@ import os.path as osp
 import time
 import math
 import numpy as np
+import wandb
+import random
 from datetime import timedelta
 from argparse import ArgumentParser
 
@@ -10,9 +12,8 @@ import torch
 from torch import cuda
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
+from torch.cuda.amp import autocast, GradScaler 
 from tqdm import tqdm
-import wandb
-import random
 
 from east_dataset import EASTDataset
 from dataset import SceneTextDataset
@@ -93,12 +94,20 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model = EAST()
 
     #Load PreTrained Model 
-    checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
-    model.load_state_dict(checkpoint)
+    # checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
+    # model.load_state_dict(checkpoint)
 
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
+
+    scaler = GradScaler(
+        init_scale=2**10,
+        growth_factor=1.5,
+        backoff_factor=0.7,
+        growth_interval=1000,
+        enabled=True
+    )
 
     model.train()
     for epoch in range(max_epoch):
@@ -107,13 +116,39 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             for img, gt_score_map, gt_geo_map, roi_mask in train_loader:
                 pbar.set_description('[Epoch {}]'.format(epoch + 1))
 
-                loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+                # Cast inputs to float32 explicitly
+                img = img.to(device, dtype=torch.float32)
+                gt_score_map = gt_score_map.to(device, dtype=torch.float32)
+                gt_geo_map = gt_geo_map.to(device, dtype=torch.float32)
+                roi_mask = roi_mask.to(device, dtype=torch.float32)
+
                 optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+
+                # Wrap training step in autocast
+                with autocast():
+                    loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+
+                # Skip bad gradients
+                if not torch.isfinite(loss):
+                    print('WARNING: non-finite loss, skipping batch')
+                    continue
+
+                # Scale loss and backward
+                scaler.scale(loss).backward()
+                
+                # Unscale before gradient clipping
+                # scaler.unscale_(optimizer)
+                
+                # Add gradient clipping
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+                
+                # Step optimizer and update scaler
+                scaler.step(optimizer)
+                scaler.update()
 
                 loss_val = loss.item()
-                epoch_loss += loss_val
+                if math.isfinite(loss_val):  # Only add finite losses
+                    epoch_loss += loss_val
 
                 # Log batch metrics to wandb
                 wandb.log({
