@@ -337,8 +337,10 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
 # vertices 좌표 클리핑 함수
 def clip_vertices(vertices, image_width, image_height):
-    vertices[:, 0] = np.clip(vertices[:, 0], 0, image_width - 1)
-    vertices[:, 1] = np.clip(vertices[:, 1], 0, image_height - 1)
+    vertices = vertices.astype(np.float32)  # Ensure float32 type
+    vertices[:, 0] = np.clip(vertices[:, 0], 0.0, float(image_width - 1))
+    vertices[:, 1] = np.clip(vertices[:, 1], 0.0, float(image_height - 1))
+   
     return vertices
 
 @njit
@@ -455,21 +457,20 @@ class SceneTextDataset(Dataset):
         image, vertices = rotate_img(image, vertices)
         image, vertices = crop_img(image, vertices, labels, self.crop_size)
 
-        # albumentation의 keypoint 기능을 사용하기 위해 format을 변환
-        vertices = clip_vertices(vertices.reshape(-1, 2), image.width, image.height)
-
         if image.mode != 'RGB':
             image = image.convert('RGB')
         image = np.array(image)
 
-        funcs = []
-        
+        # keypoint에 영향을 주지 않는 변환들
+        pixel_transforms = []
+
         if self.color_jitter:
-            funcs.append(A.ColorJitter())
+            pixel_transforms.append(A.ColorJitter())
         if self.normalize:
-            funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+            pixel_transforms.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+
         # Custom Aug
-        # funcs.append(
+        # pixel_transforms.append(
         #     RectangleShadowTransform(
         #         opacity_range=(0.7, 0.9),
         #         width_range=(0.25, 0.5),
@@ -477,16 +478,37 @@ class SceneTextDataset(Dataset):
         #         p=0.7
         #     )
         # )
-        funcs.append(A.MotionBlur(blur_limit=21, p=0.5))
-        
-        transform = A.Compose(
-            funcs,
-            keypoint_params=A.KeypointParams(format='xy')  # keypoint_params를 Compose에 추가
-        )
+        # pixel_transforms.append(A.GaussNoise(var_limit=(0.5, 0.05), p=0.5))
+        pixel_transforms.append(A.MotionBlur(blur_limit=21, p=0.5))
+        # pixel_transforms.append(A.GaussianBlur(blur_limit=(7, 21), sigma_limit=(1, 10), p=1))
 
-        augmented = transform(image=image, keypoints=vertices)
-        image, vertices = augmented['image'], np.array(augmented['keypoints']).reshape(-1, 8)
+        # pixel_transforms.append(A.GaussNoise(var_limit=(0.01, 0.05), p=1))  # 가우시안 노이즈 추가
+        # pixel_transforms.append(A.MultiplicativeNoise(multiplier=(0.9, 1.5), p=0.5))  # 곱셈 노이즈 추가
+
+        pixel_composer = A.Compose(pixel_transforms)
+        image = pixel_composer(image=image)['image']
+
+        # keypoint 변환이 필요한 tranform들 (ex: RandomRotation90)
+        geometric_transforms = [
+            # A.Perspective(scale=(0.05, 0.1), keep_size=True, always_apply=False, p=0.5),
+            # A.ElasticTransform(alpha=1000, sigma=50, p=1.0),  # 적절한 alpha와 sigma 값으로 조정
+            # A.GridDistortion(num_steps=5, distort_limit=0.015, p=0.5),
+            # A.OpticalDistortion(distort_limit=0.1, shift_limit=0.1, p=0.5),
+        ]
+
+        if geometric_transforms:
+            # albumentation의 keypoint 기능을 사용하기 위해 format을 변환
+            height, width = image.shape[:2]
+            vertices = clip_vertices(vertices.reshape(-1, 2), width, height)
+
+            geometric_composer = A.Compose(
+                geometric_transforms,
+                keypoint_params=A.KeypointParams(format='xy', remove_invisible=False)  # Keep all keypoints
+            )
+            augmented = geometric_composer(image=image, keypoints=vertices)
+            image, vertices = augmented['image'], np.array(augmented['keypoints'], dtype=np.float32).reshape(-1, 8)
+
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
-
+        
         return image, word_bboxes, roi_mask
