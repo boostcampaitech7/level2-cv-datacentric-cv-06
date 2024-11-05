@@ -72,15 +72,18 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers
+        num_workers=num_workers,
+        # pin_memory=True,
+        # persistent_workers=True,
+        # prefetch_factor=4,
     )
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = EAST()
 
     #Load PreTrained Model 
-    checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
-    model.load_state_dict(checkpoint)
+    # checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
+    # model.load_state_dict(checkpoint)
 
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
