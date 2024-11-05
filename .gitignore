@@ -16,3 +16,5 @@ detect.py
 *.csv
 *pyc
 *.out
+*.jpg
+*.json
