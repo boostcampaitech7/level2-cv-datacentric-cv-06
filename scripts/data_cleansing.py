@@ -123,7 +123,7 @@ def process_datasets(filter_type='empty'):
     Args:
         filter_type: 필터링 타입 ('empty', 'invalid', 'both')
     """
-    base_path = "../data"
+    base_path = "../code/data"
     
     receipt_datasets = [
         item for item in os.listdir(base_path)
