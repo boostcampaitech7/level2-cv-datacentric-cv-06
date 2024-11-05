@@ -93,7 +93,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model = EAST()
 
     #Load PreTrained Model 
-    checkpoint = torch.load(osp.join(model_dir,"Textgen-> sroie, cord epoch_30.pth"))
+    checkpoint = torch.load(osp.join(model_dir,"Textgen_to_sroie,cord_epoch_30.pth"))
     model.load_state_dict(checkpoint)
 
     model.to(device)
@@ -152,7 +152,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             torch.save(model.state_dict(), ckpt_fpath)
             
             # Also save as latest
-            latest_fpath = osp.join(model_dir, 'Textgen->sroie,cord->original_30_epoch.pth')
+            latest_fpath = osp.join(model_dir, 'latest.pth')
             torch.save(model.state_dict(), latest_fpath)
             
             # Log both checkpoints to wandb
