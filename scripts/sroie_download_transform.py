@@ -72,7 +72,8 @@ def generate_json_from_folder(txt_folder_path, output_json_path, img_width=1280,
     for filename in os.listdir(txt_folder_path):
         if filename.lower().endswith(".txt"):
             file_path = os.path.join(txt_folder_path, filename)
-            img_name = filename.replace(".txt", ".jpg")  # 이미지 파일명 유추
+            # 이미지 이름을 텍스트 파일 이름에 맞게 설정
+            img_name = filename.replace('.txt', '.jpg')  # .txt를 .jpg로 변경
             data = parse_text_file(file_path)            # 텍스트 파일에서 데이터 읽기
             image_data = transform_data(data, img_name, img_width, img_height)
             all_images_data["images"].update(image_data)
@@ -82,10 +83,8 @@ def generate_json_from_folder(txt_folder_path, output_json_path, img_width=1280,
         json.dump(all_images_data, json_file, indent=4)
     print(f"JSON 데이터가 {output_json_path}에 저장되었습니다.")
 
-
 # JSON 생성 실행
 generate_json_from_folder(txt_folder_path, output_json_path)
-
 
 # 폴더 삭제 함수
 def remove_folder(folder_path):
@@ -110,7 +109,7 @@ for folder in folders_to_delete:
     
 # SROIE2019 폴더 이름을 SROIE_receipt으로 변경
 old_folder_path = os.path.join(base_dir, "../SROIE2019")
-new_folder_path = os.path.join(base_dir, "../SROIE_receipt")
+new_folder_path = os.path.join(base_dir, "../sroie_receipt")
 
 if os.path.exists(old_folder_path):
     os.rename(old_folder_path, new_folder_path)
@@ -118,12 +117,21 @@ if os.path.exists(old_folder_path):
 else:
     print(f"{old_folder_path} 폴더가 존재하지 않습니다.")
 
-# SROIE2019 폴더 이름을 SROIE_receipt으로 변경
-old_folder_path = os.path.join(base_dir, "../SROIE_receipt/train/img")
-new_folder_path = os.path.join(base_dir, "../SROIE_receipt/img/train")
+old_folder_path = os.path.join(base_dir, "../sroie_receipt/train")
+new_folder_path = os.path.join(base_dir, "../sroie_receipt/img")
 
 if os.path.exists(old_folder_path):
     os.rename(old_folder_path, new_folder_path)
     print(f"{old_folder_path} 폴더가 {new_folder_path}로 이름이 변경되었습니다.")
 else:
     print(f"{old_folder_path} 폴더가 존재하지 않습니다.")
+    
+old_folder_path = os.path.join(base_dir, "../sroie_receipt/img/img")
+new_folder_path = os.path.join(base_dir, "../sroie_receipt/img/train")
+
+if os.path.exists(old_folder_path):
+    os.rename(old_folder_path, new_folder_path)
+    print(f"{old_folder_path} 폴더가 {new_folder_path}로 이름이 변경되었습니다.")
+else:
+    print(f"{old_folder_path} 폴더가 존재하지 않습니다.")
+
