@@ -30,10 +30,12 @@ def parse_text_file(file_path):
                 data.append(coordinates + [text])
     return data
 
-def transform_data(data, img_path, img_width=1280, img_height=1707):
+def transform_data(data, img_name, img_width=1280, img_height=1707, index=0):
     """텍스트 데이터를 기반으로 단일 이미지에 대한 JSON 구조 생성."""
+    # 이미지 이름을 지정된 형식으로 변경
+    formatted_img_name = f"extractor.srioe.train.{index:04d}.jpg"
     return {
-        img_path: {
+        formatted_img_name: {
             "paragraphs": {},
             "words": {
                 f"{i:04}": {
@@ -69,12 +71,11 @@ def generate_json_from_folder(txt_folder_path, output_json_path, img_width=1280,
     all_images_data = {"images": {}}
     
     # 폴더에서 텍스트 파일을 순회하며 JSON 구조 생성
-    for filename in os.listdir(txt_folder_path):
+    for index, filename in enumerate(os.listdir(txt_folder_path)):
         if filename.lower().endswith(".txt"):
             file_path = os.path.join(txt_folder_path, filename)
-            img_name = filename.replace(".txt", ".jpg")  # 이미지 파일명 유추
             data = parse_text_file(file_path)            # 텍스트 파일에서 데이터 읽기
-            image_data = transform_data(data, img_name, img_width, img_height)
+            image_data = transform_data(data, filename.replace(".txt", ".jpg"), img_width, img_height, index)
             all_images_data["images"].update(image_data)
     
     # JSON 파일로 저장
@@ -82,10 +83,8 @@ def generate_json_from_folder(txt_folder_path, output_json_path, img_width=1280,
         json.dump(all_images_data, json_file, indent=4)
     print(f"JSON 데이터가 {output_json_path}에 저장되었습니다.")
 
-
 # JSON 생성 실행
 generate_json_from_folder(txt_folder_path, output_json_path)
-
 
 # 폴더 삭제 함수
 def remove_folder(folder_path):
@@ -107,10 +106,10 @@ folders_to_delete = [
 # 모든 지정된 폴더 삭제 실행
 for folder in folders_to_delete:
     remove_folder(folder)
-    
+
 # SROIE2019 폴더 이름을 SROIE_receipt으로 변경
 old_folder_path = os.path.join(base_dir, "../SROIE2019")
-new_folder_path = os.path.join(base_dir, "../SROIE_receipt")
+new_folder_path = os.path.join(base_dir, "../sroie_receipt")
 
 if os.path.exists(old_folder_path):
     os.rename(old_folder_path, new_folder_path)
@@ -118,12 +117,28 @@ if os.path.exists(old_folder_path):
 else:
     print(f"{old_folder_path} 폴더가 존재하지 않습니다.")
 
-# SROIE2019 폴더 이름을 SROIE_receipt으로 변경
-old_folder_path = os.path.join(base_dir, "../SROIE_receipt/train/img")
-new_folder_path = os.path.join(base_dir, "../SROIE_receipt/img/train")
+# SROIE_receipt/train/img 폴더의 이름을 img/train으로 변경
+old_img_folder_path = os.path.join(base_dir, "../sroie_receipt/train/img")
+new_img_folder_path = os.path.join(base_dir, "../sroie_receipt/img/train")
 
-if os.path.exists(old_folder_path):
-    os.rename(old_folder_path, new_folder_path)
-    print(f"{old_folder_path} 폴더가 {new_folder_path}로 이름이 변경되었습니다.")
-else:
-    print(f"{old_folder_path} 폴더가 존재하지 않습니다.")
+# 원본 및 대상 디렉토리 경로
+source_dir = '../sroie_receipt/train/img'
+destination_dir = '../sroie_receipt/img/train'
+
+# 대상 디렉토리가 존재하지 않으면 생성
+os.makedirs(destination_dir, exist_ok=True)
+
+# 원본 디렉토리의 파일 목록 가져오기
+files = os.listdir(source_dir)
+
+# 파일들을 대상 디렉토리로 이동
+for file in files:
+    source_file = os.path.join(source_dir, file)
+    destination_file = os.path.join(destination_dir, file)
+    
+    # 파일이 실제로 존재하고 파일인 경우 이동
+    if os.path.isfile(source_file):
+        shutil.move(source_file, destination_file)
+        print(f'파일 이동: {source_file} -> {destination_file}')
+    else:
+        print(f'파일이 아닙니다: {source_file}')
