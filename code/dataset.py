@@ -480,7 +480,7 @@ class SceneTextDataset(Dataset):
         
         transform = A.Compose(
             funcs,
-            keypoint_params=A.KeypointParams(format='xy')  # keypoint_params를 Compose에 추가
+            keypoint_params=A.KeypointParams(format='xy', remove_invisible=False)  # Keep all keypoints
         )
 
         augmented = transform(image=image, keypoints=vertices)
