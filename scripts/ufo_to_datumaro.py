@@ -2,45 +2,7 @@ import json
 from pathlib import Path
 from utils import extract_flat_points
 
-def process_all_receipts(data_dir="data", split="val"):
-    """
-    모든 receipt 데이터셋의 UFO 파일을 처리
-    """
-    # receipt 디렉토리들 찾기
-    receipt_dirs = [
-        d for d in Path(data_dir).iterdir() 
-        if d.is_dir() and "receipt" in d.name and not d.name.startswith(".")
-    ]
-    
-    results = []
-    for receipt_dir in receipt_dirs:
-        # UFO json 파일 경로
-        ufo_path = receipt_dir / "ufo" / f"{split}.json"
-        if not ufo_path.exists():
-            print(f"Skipping {receipt_dir.name}: {split}.json not found")
-            continue
-            
-        # 출력 디렉토리 설정
-        output_dir = Path("annotations") / receipt_dir.name
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"{split}.json"
-        
-        # 변환 실행
-        try:
-            output_file = ufo_to_datumaro(
-                str(ufo_path), 
-                str(output_path),
-                task_name=receipt_dir.name,
-                split=split
-            )
-            results.append((receipt_dir.name, output_file))
-            print(f"Processed {receipt_dir.name}")
-        except Exception as e:
-            print(f"Error processing {receipt_dir.name}: {e}")
-    
-    return results
-
-def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="val"):
+def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="train"):
     """
     UFO format을 Datumaro format으로 변환
     """
@@ -56,30 +18,6 @@ def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="
     image_map = {k: v["words"] for k, v in ufo_data["images"].items() if k in image_keys}
     flat_points = {fname: extract_flat_points(image) for fname, image in image_map.items()}
     
-    # Datumaro format으로 변환
-    def wrap_vertices(vertices):
-        return {
-            "id": 0,
-            "type": "polygon",
-            "attributes": {"occluded": False},
-            "group": 0,
-            "label_id": 0,
-            "points": vertices,
-            "z_order": 0,
-        }
-    
-    def wrap_annotations(idx, img_name, annotations):
-        return {
-            "id": id_prefix + img_name,
-            "annotations": annotations,
-            "attr": {"frame": idx},
-            "point_cloud": {"path": ""},
-            "info": {
-                "img_w": ufo_data["images"][img_name]["img_w"],
-                "img_h": ufo_data["images"][img_name]["img_h"],
-            },
-        }
-    
     annotation = {
         "info": {},
         "categories": {
@@ -90,11 +28,26 @@ def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="
             "points": {"items": []},
         },
         "items": [
-            wrap_annotations(
-                idx, 
-                img_name, 
-                [wrap_vertices(vertices) for vertices in points]
-            )
+            {
+                "id": id_prefix + img_name,
+                "annotations": [
+                    {
+                        "id": 0,
+                        "type": "polygon",
+                        "attributes": {"occluded": False},
+                        "group": 0,
+                        "label_id": 0,
+                        "points": vertices,
+                        "z_order": 0,
+                    } for vertices in points
+                ],
+                "attr": {"frame": idx},
+                "point_cloud": {"path": ""},
+                "info": {
+                    "img_w": ufo_data["images"][img_name]["img_w"],
+                    "img_h": ufo_data["images"][img_name]["img_h"],
+                },
+            }
             for idx, (img_name, points) in enumerate(flat_points.items())
         ]
     }
@@ -108,10 +61,31 @@ def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="
     return output_path
 
 def main():
-    # 모든 receipt 데이터 처리
-    results = process_all_receipts()
+    data_dir = Path("../data")
+    target_file = "train_filtered_both.json"
     
-    # 결과 출력
+    # _receipt로 끝나는 모든 폴더 찾기
+    receipt_dirs = [d for d in data_dir.iterdir() if d.is_dir() and d.name.endswith("_receipt")]
+    
+    results = []
+    for receipt_dir in receipt_dirs:
+        # UFO json 파일 경로
+        ufo_path = receipt_dir / "ufo" / "filtered" / target_file
+        if not ufo_path.exists():
+            print(f"Skipping {receipt_dir.name}: {target_file} not found")
+            continue
+            
+        # 출력 경로
+        output_path = Path("annotations") / receipt_dir.name / target_file
+        
+        # 변환 실행
+        try:
+            output_file = ufo_to_datumaro(str(ufo_path), str(output_path), task_name=receipt_dir.name)
+            results.append((receipt_dir.name, output_file))
+            print(f"Processed {receipt_dir.name}")
+        except Exception as e:
+            print(f"Error processing {receipt_dir.name}: {e}")
+    
     print("\nConversion Results:")
     for dataset_name, output_file in results:
         print(f"{dataset_name}: {output_file}")
