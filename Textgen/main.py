@@ -30,7 +30,7 @@ def generate_dataset(languages, num_images=10, sentences_per_image=64):
         full_lang = _infer_dir(lang)
         root_dir = f'data/{full_lang}_receipt'
 
-        os.makedirs(f'{root_dir}/img', exist_ok=True)
+        os.makedirs(f'{root_dir}/img/train', exist_ok=True)
         os.makedirs(f'{root_dir}/ufo', exist_ok=True)
         print(f"\nGenerating {full_lang} dataset...")
 
@@ -59,7 +59,7 @@ def generate_dataset(languages, num_images=10, sentences_per_image=64):
             )
             
             for i in image_progress:
-                image_id = f"{lang}_image_{i+1}.jpg"
+                image_id = f"synth.{lang}.image{i+1}.jpg"
                 try:
                     image_progress.set_postfix({
                         'image_id': image_id,
@@ -69,7 +69,7 @@ def generate_dataset(languages, num_images=10, sentences_per_image=64):
                     image, words = generator.generate_receipt()
                     
                     # 이미지 저장
-                    image_path = f'{root_dir}/img/{image_id}'
+                    image_path = f'{root_dir}/img/train/{image_id}'
                     image.save(image_path)
                     
                     # 단어 수 확인
