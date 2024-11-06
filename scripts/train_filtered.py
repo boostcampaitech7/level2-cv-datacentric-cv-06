@@ -6,6 +6,7 @@ import numpy as np
 from datetime import timedelta
 from argparse import ArgumentParser
 
+
 import torch
 from torch import cuda
 from torch.utils.data import DataLoader
@@ -16,6 +17,7 @@ import random
 
 from east_dataset import EASTDataset
 from dataset_filtered import SceneTextDataset
+from dataset_augmentation import SceneTextDatasetAug
 from model import EAST
 
 def set_seed(seed=42):
@@ -74,7 +76,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         }
     )
 
-    dataset = SceneTextDataset(
+    dataset = SceneTextDatasetAug(
         data_dir,
         split='filtered/train_filtered_both',
         image_size=image_size,
@@ -93,8 +95,8 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model = EAST()
 
     #Load PreTrained Model 
-    # checkpoint = torch.load(osp.join(model_dir,"Textgen_e30_without_clip_grad.pth"))
-    # model.load_state_dict(checkpoint)
+    checkpoint = torch.load(osp.join(model_dir,"Textgen_to_opendata_epoch_30.pth"))
+    model.load_state_dict(checkpoint)
     
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
