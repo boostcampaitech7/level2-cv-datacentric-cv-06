@@ -3,9 +3,6 @@ from pathlib import Path
 from utils import extract_flat_points
 
 def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="train"):
-    """
-    UFO format을 Datumaro format으로 변환
-    """
     # UFO 파일 로드
     with open(ufo_json_path, 'r', encoding='utf-8') as f:
         ufo_data = json.load(f)
@@ -13,10 +10,41 @@ def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="
     # CVAT task 관련 설정
     id_prefix = f"{task_name}/images/{split}/"
     
-    # 이미지 키와 points 추출
-    image_keys = list(ufo_data["images"].keys())
-    image_map = {k: v["words"] for k, v in ufo_data["images"].items() if k in image_keys}
-    flat_points = {fname: extract_flat_points(image) for fname, image in image_map.items()}
+    def custom_sort_key(filename):
+        if 'appen2_' in filename:
+            return (0, filename)
+        return (1, filename)
+    
+    # 이미지 키 정렬
+    image_keys = sorted(list(ufo_data["images"].keys()), key=custom_sort_key)
+    
+    # 정렬된 순서로 items 생성
+    items = []
+    for idx, img_name in enumerate(image_keys):
+        image_data = ufo_data["images"][img_name]
+        points = extract_flat_points(image_data["words"])
+        
+        item = {
+            "id": id_prefix + img_name,
+            "annotations": [
+                {
+                    "id": 0,
+                    "type": "polygon",
+                    "attributes": {"occluded": False},
+                    "group": 0,
+                    "label_id": 0,
+                    "points": vertices,
+                    "z_order": 0,
+                } for vertices in points
+            ],
+            "attr": {"frame": idx},
+            "point_cloud": {"path": ""},
+            "info": {
+                "img_w": image_data.get("img_w", 0),
+                "img_h": image_data.get("img_h", 0),
+            },
+        }
+        items.append(item)
     
     annotation = {
         "info": {},
@@ -27,29 +55,7 @@ def ufo_to_datumaro(ufo_json_path, output_path, task_name="receipt_val", split="
             },
             "points": {"items": []},
         },
-        "items": [
-            {
-                "id": id_prefix + img_name,
-                "annotations": [
-                    {
-                        "id": 0,
-                        "type": "polygon",
-                        "attributes": {"occluded": False},
-                        "group": 0,
-                        "label_id": 0,
-                        "points": vertices,
-                        "z_order": 0,
-                    } for vertices in points
-                ],
-                "attr": {"frame": idx},
-                "point_cloud": {"path": ""},
-                "info": {
-                    "img_w": ufo_data["images"][img_name]["img_w"],
-                    "img_h": ufo_data["images"][img_name]["img_h"],
-                },
-            }
-            for idx, (img_name, points) in enumerate(flat_points.items())
-        ]
+        "items": items
     }
     
     # 결과 저장
