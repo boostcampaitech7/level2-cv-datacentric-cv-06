@@ -76,7 +76,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         }
     )
 
-    dataset = SceneTextDatasetAug(
+    dataset = SceneTextDataset(
         data_dir,
         split='filtered/train_filtered_both',
         image_size=image_size,
@@ -95,7 +95,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     model = EAST()
 
     #Load PreTrained Model 
-    checkpoint = torch.load(osp.join(model_dir,"Textgen_to_opendata_epoch_30.pth"))
+    checkpoint = torch.load(osp.join(model_dir,"Trdg,Cord+Sroie,Comp(clean, aug, crop2048)30ep.pth"))
     model.load_state_dict(checkpoint)
     
     model.to(device)
