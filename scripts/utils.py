@@ -26,7 +26,7 @@ wrap_words = lambda words,wh: {
     "paragraphs": {},
     "words": words,
     "chars": {},
-    "img_w ": wh[0],
+    "img_w": wh[0],
     "img_h": wh[1],
     "num_patches": None,
     "tags": [],
