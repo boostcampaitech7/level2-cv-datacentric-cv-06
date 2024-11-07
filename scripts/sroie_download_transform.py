@@ -11,7 +11,7 @@ base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 # 폴더 경로 설정
 txt_folder_path = os.path.join(base_dir, "../SROIE2019/train/box")
-output_dir = os.path.join(base_dir, "../SROIE2019/ufo/train")
+output_dir = os.path.join(base_dir, "../SROIE2019/ufo")
 output_json_path = os.path.join(output_dir, "train.json")
 
 # UFO 폴더가 없으면 생성
