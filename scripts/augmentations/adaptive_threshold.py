@@ -12,6 +12,10 @@ class CustomAdaptiveThreshold(A.ImageOnlyTransform):
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         
+        # Convert to uint8 for threshold operation
+        if gray.dtype != np.uint8:
+            gray = (gray * 255).astype(np.uint8)
+        
         # Apply adaptive thresholding
         binary = cv2.adaptiveThreshold(
             gray,
@@ -22,5 +26,6 @@ class CustomAdaptiveThreshold(A.ImageOnlyTransform):
             self.c
         )
         
-        # Convert back to RGB
-        return cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+        # Convert back to RGB and then to float32
+        rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
+        return rgb.astype(np.float32) / 255.0
