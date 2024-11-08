@@ -354,7 +354,8 @@ class SceneTextDataset(Dataset):
                  ignore_under_threshold=10,
                  drop_under_threshold=1,
                  color_jitter=True,
-                 normalize=True):
+                 normalize=True, 
+                 filtered=False):
         self._lang_list = [
             'chinese',
             'japanese',
@@ -380,8 +381,10 @@ class SceneTextDataset(Dataset):
 
         self.drop_under_threshold = drop_under_threshold
         self.ignore_under_threshold = ignore_under_threshold
+        
+        self.filtered=filtered
 
-    def _infer_dir(self, fname, filtered=False):
+    def _infer_dir(self, fname):
         lang_indicator = fname.split('.')[1]
         if lang_indicator == 'zh':
             lang = 'chinese'
@@ -398,7 +401,7 @@ class SceneTextDataset(Dataset):
         else:
             raise ValueError
         
-        if filtered:
+        if self.filtered:
             return osp.join(self.root_dir, f'{lang}_receipt', 'img/train')
         
         return osp.join(self.root_dir, f'{lang}_receipt', 'img', self.split)
