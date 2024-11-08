@@ -1,7 +1,7 @@
  # Boostcamp AI Tech 7 CV 06
  
 ## 다국어 영수증 OCR
-### 2024.10.30 10:00 ~ 2024.11.07 19:00
+#### 2024.10.30 10:00 ~ 2024.11.07 19:00
 
 
 ![image](https://github.com/user-attachments/assets/3d11bf4f-c77b-4e18-b7d3-c5c97a740cee)
