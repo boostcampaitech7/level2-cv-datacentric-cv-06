@@ -1,5 +1,6 @@
 import numpy as np
 import albumentations as A
+import cv2
 
 class RectangleShadowTransform(A.ImageOnlyTransform):
     def __init__(self, 
@@ -49,8 +50,17 @@ class RectangleShadowTransform(A.ImageOnlyTransform):
         # 그림자 투명도 설정
         opacity = np.random.uniform(self.opacity_range[0], self.opacity_range[1])
         
+        # 그림자 마스크 생성
+        shadow_mask = np.ones_like(image) * 0  # 검은색 마스크
+        
         # 결과 이미지 생성
         result = image.copy()
-        result[y1:y2, x1:x2] = (result[y1:y2, x1:x2] * opacity).astype(np.uint8)
+        
+        # 그림자 영역에 블렌딩 적용
+        # 원본 이미지와 그림자 마스크를 opacity 비율로 블렌딩
+        shadow_area = result[y1:y2, x1:x2]
+        shadow_mask = shadow_mask[y1:y2, x1:x2]
+        blended = cv2.addWeighted(shadow_area, opacity, shadow_mask, 1-opacity, 0)
+        result[y1:y2, x1:x2] = blended
         
         return result

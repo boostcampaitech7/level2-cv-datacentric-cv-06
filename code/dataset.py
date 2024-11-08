@@ -12,6 +12,7 @@ from shapely.geometry import Polygon
 from numba import njit
 
 from augmentations.shadow_aug import RectangleShadowTransform
+from augmentations.adaptive_threshold import CustomAdaptiveThreshold
 
 @njit
 def cal_distance(x1, y1, x2, y2):
@@ -386,6 +387,39 @@ def perspective_augmentaiton(image, vertices, pad=0, color=None):
 
     return image, vertices
 
+def edge_aug(image, p=0.5):
+    if np.random.random() > p:
+        return image
+    
+    # PIL Image를 numpy array로 변환
+    if isinstance(image, Image.Image):
+        # RGB 모드가 아니면 변환
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        image = np.array(image)
+    
+    # RGB to BGR 변환 (PIL은 RGB, OpenCV는 BGR 사용)
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    
+    # 그레이스케일 변환
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # 블러 적용 (노이즈 제거)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Canny Edge Detection
+    edges = cv2.Canny(blurred, 50, 150)
+    
+    # 모폴로지 연산으로 엣지 보강
+    kernel = np.ones((5,5), np.uint8)
+    dilated = cv2.dilate(edges, kernel, iterations=1)
+    
+    # 3채널로 변환
+    result = cv2.cvtColor(dilated, cv2.COLOR_GRAY2RGB)
+    
+    # PIL Image로 변환하여 반환
+    return Image.fromarray(result)
+
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
                  split='train',
@@ -454,6 +488,7 @@ class SceneTextDataset(Dataset):
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
         # image, vertices = perspective_augmentaiton(image, vertices) # Perspective Transform
+        # image = edge_aug(image, p=0.5)
         image, vertices = rotate_img(image, vertices)
         image, vertices = crop_img(image, vertices, labels, self.crop_size)
 
@@ -465,35 +500,32 @@ class SceneTextDataset(Dataset):
         pixel_transforms = []
 
         if self.color_jitter:
-            pixel_transforms.append(A.ColorJitter())
+            pixel_transforms.append(A.OneOf([
+                CustomAdaptiveThreshold(block_size=11, c=2, p=0.5),
+                A.Sequential([
+                    A.ColorJitter(),
+                    RectangleShadowTransform( 
+                        opacity_range=(0.7, 0.9),
+                        width_range=(0.25, 0.5),
+                        height_range=(0.25, 0.5),
+                        p=0.5
+                    )
+                ], p=1.0)
+            ], p=0.5))
         if self.normalize:
             pixel_transforms.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+        
+        # 노이즈들은 둘 다 적용 가능하도록
+        pixel_transforms.append(A.GaussNoise(var_limit=(0.01, 0.05), p=0.4))
+        pixel_transforms.append(A.MultiplicativeNoise(multiplier=(0.9, 1.5), p=0.4))
 
-        # Custom Aug
-        # pixel_transforms.append(
-        #     RectangleShadowTransform(
-        #         opacity_range=(0.7, 0.9),
-        #         width_range=(0.25, 0.5),
-        #         height_range=(0.25, 0.5),
-        #         p=0.7
-        #     )
-        # )
-        # pixel_transforms.append(A.GaussNoise(var_limit=(0.5, 0.05), p=0.5))
-        pixel_transforms.append(A.MotionBlur(blur_limit=21, p=0.5))
-        # pixel_transforms.append(A.GaussianBlur(blur_limit=(7, 21), sigma_limit=(1, 10), p=1))
-
-        # pixel_transforms.append(A.GaussNoise(var_limit=(0.01, 0.05), p=1))  # 가우시안 노이즈 추가
-        # pixel_transforms.append(A.MultiplicativeNoise(multiplier=(0.9, 1.5), p=0.5))  # 곱셈 노이즈 추가
-
+        pixel_transforms.append(A.ElasticTransform(alpha=1000, sigma=50, p=0.5))
+        
         pixel_composer = A.Compose(pixel_transforms)
         image = pixel_composer(image=image)['image']
 
         # keypoint 변환이 필요한 tranform들 (ex: RandomRotation90)
         geometric_transforms = [
-            # A.Perspective(scale=(0.05, 0.1), keep_size=True, always_apply=False, p=0.5),
-            # A.ElasticTransform(alpha=1000, sigma=50, p=1.0),  # 적절한 alpha와 sigma 값으로 조정
-            # A.GridDistortion(num_steps=5, distort_limit=0.015, p=0.5),
-            # A.OpticalDistortion(distort_limit=0.1, shift_limit=0.1, p=0.5),
         ]
 
         if geometric_transforms:
