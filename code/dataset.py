@@ -336,14 +336,6 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
     return new_vertices, new_labels
 
-# vertices 좌표 클리핑 함수
-def clip_vertices(vertices, image_width, image_height):
-    vertices = vertices.astype(np.float32)  # Ensure float32 type
-    vertices[:, 0] = np.clip(vertices[:, 0], 0.0, float(image_width - 1))
-    vertices[:, 1] = np.clip(vertices[:, 1], 0.0, float(image_height - 1))
-   
-    return vertices
-
 @njit
 def bbox_transform(bbox, M):
     v = np.array(bbox).reshape(-1, 2).T
@@ -363,7 +355,14 @@ class SceneTextDataset(Dataset):
                  drop_under_threshold=1,
                  color_jitter=True,
                  normalize=True):
-        self._lang_list = ['chinese', 'japanese', 'thai', 'vietnamese']
+        self._lang_list = [
+            'chinese',
+            'japanese',
+            'thai',
+            'vietnamese'
+            # 'sroie',
+            # 'cord'
+        ]
         self.root_dir = root_dir
         self.split = split
         total_anno = dict(images=dict())
@@ -382,7 +381,7 @@ class SceneTextDataset(Dataset):
         self.drop_under_threshold = drop_under_threshold
         self.ignore_under_threshold = ignore_under_threshold
 
-    def _infer_dir(self, fname):
+    def _infer_dir(self, fname, filtered=False):
         lang_indicator = fname.split('.')[1]
         if lang_indicator == 'zh':
             lang = 'chinese'
@@ -392,8 +391,16 @@ class SceneTextDataset(Dataset):
             lang = 'thai'
         elif lang_indicator == 'vi':
             lang = 'vietnamese'
+        elif lang == "cord": #cord dataset 
+            lang = 'cord'
+        elif fname[0] == 'X': # sroie dataset 
+            lang = 'sroie'
         else:
             raise ValueError
+        
+        if filtered:
+            return osp.join(self.root_dir, f'{lang}_receipt', 'img/train')
+        
         return osp.join(self.root_dir, f'{lang}_receipt', 'img', self.split)
     def __len__(self):
         return len(self.image_fnames)
