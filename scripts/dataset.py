@@ -11,6 +11,9 @@ from torch.utils.data import Dataset
 from shapely.geometry import Polygon
 from numba import njit
 
+from augmentations.shadow_aug import RectangleShadowTransform
+from augmentations.adaptive_threshold import CustomAdaptiveThreshold
+
 @njit
 def cal_distance(x1, y1, x2, y2):
     '''calculate the Euclidean distance'''
@@ -333,6 +336,15 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
     return new_vertices, new_labels
 
+@njit
+def bbox_transform(bbox, M):
+    v = np.array(bbox).reshape(-1, 2).T
+    v = np.vstack([v, np.ones((1, 4))])
+    
+    v = M @ v # Perpective Transform
+    v = v[:2, :] / v[2, :] # 마지막 행의 값으로 나눠 정규화
+    out = v.T.flatten().tolist()
+    return out
 
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
@@ -342,8 +354,16 @@ class SceneTextDataset(Dataset):
                  ignore_under_threshold=10,
                  drop_under_threshold=1,
                  color_jitter=True,
-                 normalize=True):
-        self._lang_list = ['chinese', 'japanese', 'thai', 'vietnamese']
+                 normalize=True, 
+                 filtered=False):
+        self._lang_list = [
+            'chinese',
+            'japanese',
+            'thai',
+            'vietnamese'
+            # 'sroie',
+            # 'cord'
+        ]
         self.root_dir = root_dir
         self.split = split
         total_anno = dict(images=dict())
@@ -361,6 +381,8 @@ class SceneTextDataset(Dataset):
 
         self.drop_under_threshold = drop_under_threshold
         self.ignore_under_threshold = ignore_under_threshold
+        
+        self.filtered=filtered
 
     def _infer_dir(self, fname):
         lang_indicator = fname.split('.')[1]
@@ -372,8 +394,16 @@ class SceneTextDataset(Dataset):
             lang = 'thai'
         elif lang_indicator == 'vi':
             lang = 'vietnamese'
+        elif lang == "cord": #cord dataset 
+            lang = 'cord'
+        elif fname[0] == 'X': # sroie dataset 
+            lang = 'sroie'
         else:
             raise ValueError
+        
+        if self.filtered:
+            return osp.join(self.root_dir, f'{lang}_receipt', 'img/train')
+        
         return osp.join(self.root_dir, f'{lang}_receipt', 'img', self.split)
     def __len__(self):
         return len(self.image_fnames)
@@ -408,15 +438,33 @@ class SceneTextDataset(Dataset):
             image = image.convert('RGB')
         image = np.array(image)
 
-        funcs = []
-        if self.color_jitter:
-            funcs.append(A.ColorJitter())
-        if self.normalize:
-            funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
-        transform = A.Compose(funcs)
+        pixel_transforms = []
 
-        image = transform(image=image)['image']
+        if self.color_jitter:
+            pixel_transforms.append(A.OneOf([
+                CustomAdaptiveThreshold(block_size=11, c=2, p=0.5),
+                A.Sequential([
+                    A.ColorJitter(),
+                    RectangleShadowTransform( 
+                        opacity_range=(0.7, 0.9),
+                        width_range=(0.25, 0.5),
+                        height_range=(0.25, 0.5),
+                        p=0.5
+                    )
+                ], p=1.0)
+            ], p=0.5))
+        if self.normalize:
+            pixel_transforms.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+        
+        pixel_transforms.append(A.GaussNoise(var_limit=(0.01, 0.05), p=0.4))
+        pixel_transforms.append(A.MultiplicativeNoise(multiplier=(0.9, 1.5), p=0.4))
+
+        pixel_transforms.append(A.ElasticTransform(alpha=1000, sigma=50, p=0.5))
+        
+        pixel_composer = A.Compose(pixel_transforms)
+        image = pixel_composer(image=image)['image']
+
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
-
+        
         return image, word_bboxes, roi_mask
