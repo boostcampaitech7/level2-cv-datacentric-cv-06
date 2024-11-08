@@ -354,72 +354,6 @@ def bbox_transform(bbox, M):
     out = v.T.flatten().tolist()
     return out
 
-def perspective_augmentaiton(image, vertices, pad=0, color=None):
-    if color is None:
-        color = [255, 255, 255]
-    width, height = np.array(image.size)
-    magnitude_lb = 0
-    magnitude_ub = 200
-    src = np.array([[0, 0], [width, 0], [width, height], [0, height]], np.float32)
-    perturb = np.random.uniform(magnitude_lb, magnitude_ub, (4, 2)) * np.array(
-        [[1, 1], [-1, 1], [-1, -1], [1, -1]]
-    )
-    perturb = perturb.astype(np.float32)
-    dst = src + perturb
-
-    # obtain the transform matrix
-    M = cv2.getPerspectiveTransform(src, dst) # 원본 좌표 src를 dst처럼 왜곡한 좌표로 만들기 위한 원근 변환 행렬 추출
-
-    # transform the image
-    out = cv2.warpPerspective(
-        np.array(image),
-        M,
-        image.size,
-        flags=cv2.INTER_LINEAR,
-        borderValue=color,
-    )
-    out = Image.fromarray(out)
-    image = out
-
-    # transform the bounding boxes
-    for i, bbox in enumerate(vertices):
-        vertices[i] = bbox_transform(bbox, M) # 실제 bbox에 원근 변환 행렬을 적용해 이미지의 변화에 따라가도록해주기
-
-    return image, vertices
-
-def edge_aug(image, p=0.5):
-    if np.random.random() > p:
-        return image
-    
-    # PIL Image를 numpy array로 변환
-    if isinstance(image, Image.Image):
-        # RGB 모드가 아니면 변환
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-        image = np.array(image)
-    
-    # RGB to BGR 변환 (PIL은 RGB, OpenCV는 BGR 사용)
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    
-    # 그레이스케일 변환
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # 블러 적용 (노이즈 제거)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    # Canny Edge Detection
-    edges = cv2.Canny(blurred, 50, 150)
-    
-    # 모폴로지 연산으로 엣지 보강
-    kernel = np.ones((5,5), np.uint8)
-    dilated = cv2.dilate(edges, kernel, iterations=1)
-    
-    # 3채널로 변환
-    result = cv2.cvtColor(dilated, cv2.COLOR_GRAY2RGB)
-    
-    # PIL Image로 변환하여 반환
-    return Image.fromarray(result)
-
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
                  split='train',
@@ -487,8 +421,6 @@ class SceneTextDataset(Dataset):
         image = Image.open(image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
-        # image, vertices = perspective_augmentaiton(image, vertices) # Perspective Transform
-        # image = edge_aug(image, p=0.5)
         image, vertices = rotate_img(image, vertices)
         image, vertices = crop_img(image, vertices, labels, self.crop_size)
 
@@ -496,7 +428,6 @@ class SceneTextDataset(Dataset):
             image = image.convert('RGB')
         image = np.array(image)
 
-        # keypoint에 영향을 주지 않는 변환들
         pixel_transforms = []
 
         if self.color_jitter:
@@ -515,7 +446,6 @@ class SceneTextDataset(Dataset):
         if self.normalize:
             pixel_transforms.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
         
-        # 노이즈들은 둘 다 적용 가능하도록
         pixel_transforms.append(A.GaussNoise(var_limit=(0.01, 0.05), p=0.4))
         pixel_transforms.append(A.MultiplicativeNoise(multiplier=(0.9, 1.5), p=0.4))
 
@@ -523,22 +453,6 @@ class SceneTextDataset(Dataset):
         
         pixel_composer = A.Compose(pixel_transforms)
         image = pixel_composer(image=image)['image']
-
-        # keypoint 변환이 필요한 tranform들 (ex: RandomRotation90)
-        geometric_transforms = [
-        ]
-
-        if geometric_transforms:
-            # albumentation의 keypoint 기능을 사용하기 위해 format을 변환
-            height, width = image.shape[:2]
-            vertices = clip_vertices(vertices.reshape(-1, 2), width, height)
-
-            geometric_composer = A.Compose(
-                geometric_transforms,
-                keypoint_params=A.KeypointParams(format='xy', remove_invisible=False)  # Keep all keypoints
-            )
-            augmented = geometric_composer(image=image, keypoints=vertices)
-            image, vertices = augmented['image'], np.array(augmented['keypoints'], dtype=np.float32).reshape(-1, 8)
 
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
