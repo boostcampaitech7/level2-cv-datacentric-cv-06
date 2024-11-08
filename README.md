@@ -26,6 +26,9 @@ OCR은 글자 검출 (text detection), 글자 인식 (text recognition), 정렬�
 
 출력 : bbox 좌표가 포함된 UFO Format (상세 제출 형식은 Overview > Metric 탭 및 강의 6강 참조)
 
+## Result
+![image](https://github.com/user-attachments/assets/7a6d4b29-4691-496a-9b72-7a05f849d672)
+최종 Private F1-score 0.8799 달성
 
 ## Contributor
 | [![](https://avatars.githubusercontent.com/jhuni17)](https://github.com/jhuni17) | [![](https://avatars.githubusercontent.com/jung0228)](https://github.com/jung0228) | [![](https://avatars.githubusercontent.com/Jin-SukKim)](https://github.com/Jin-SukKim) | [![](https://avatars.githubusercontent.com/kimdyoc13)](https://github.com/kimdyoc13) | [![](https://avatars.githubusercontent.com/MinSeok1204)](https://github.com/MinSeok1204) | [![](https://avatars.githubusercontent.com/airacle100)](https://github.com/airacle100) |
