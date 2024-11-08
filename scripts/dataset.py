@@ -371,6 +371,10 @@ class SceneTextDataset(Dataset):
             lang = 'thai'
         elif lang_indicator == 'vi':
             lang = 'vietnamese'
+        elif lang_indicator == 'cord': # cord dataset
+            lang = 'cord'
+        elif fname[0] == 'X': # sroie dataset
+            lang = 'sroie'
         else:
             raise ValueError
         return osp.join(self.root_dir, f'{lang}_receipt', 'img', self.split)
@@ -410,6 +414,7 @@ class SceneTextDataset(Dataset):
         funcs = []
         if self.color_jitter:
             funcs.append(A.ColorJitter())
+            funcs.append(A.ElasticTransform(alpha=1000, sigma=50, p=0.5)) 
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
         transform = A.Compose(funcs)
